@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>PINK ARENA 3D</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#090713;color:#fff;font-family:Arial,sans-serif}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+#menu{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#3b164c 0,#130d24 55%,#080711 100%);z-index:5}
+h1{font-size:clamp(34px,9vw,64px);margin:0 0 8px;color:#ff70d5;text-shadow:0 0 18px #ff35c8;letter-spacing:2px;text-align:center}
+#menu p{color:#e8c9ed;margin:8px 20px 24px;text-align:center}
+button,select{border:2px solid #ff70d5;background:#24102f;color:#fff;border-radius:12px;padding:13px 24px;font-size:18px;margin:7px;min-width:170px}
+button:active{background:#a52d91}
+#hud{position:fixed;top:10px;left:10px;right:10px;display:none;justify-content:space-between;pointer-events:none;text-shadow:0 2px 4px #000;font-weight:bold}
+#controls{position:fixed;bottom:15px;left:0;right:0;display:none;justify-content:space-between;align-items:end;padding:0 18px;pointer-events:none}
+.pad{display:grid;grid-template-columns:54px 54px 54px;grid-template-rows:54px 54px;gap:4px;pointer-events:auto}
+.pad button{min-width:0;width:54px;height:54px;padding:0;margin:0;background:#401d4dcc;border-color:#ff8be0}
+#shoot{width:88px;height:88px;border-radius:50%;min-width:0;padding:0;background:#b52b9dcc;font-weight:bold;pointer-events:auto}
+#hint{position:fixed;bottom:112px;left:0;right:0;text-align:center;color:#fff9;font-size:12px;display:none;pointer-events:none}
+#settings{display:none;position:fixed;z-index:6;inset:0;background:#100b20;align-items:center;justify-content:center;flex-direction:column}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="menu"><h1>PINK ARENA 3D</h1><p>Аркадний шутер з ботами</p><button id="play">ГРАТИ</button><button id="openSettings">НАЛАШТУВАННЯ</button><p style="font-size:12px">Керування: стрілки / WASD, на телефоні — кнопки</p></div>
+<div id="settings"><h1 style="font-size:34px">НАЛАШТУВАННЯ</h1><label>Кількість ботів: <select id="bots"><option>3</option><option selected>5</option><option>8</option></select></label><label>Колір гравця: <select id="skin"><option value="#ff70d5">Рожевий</option><option value="#65d9ff">Блакитний</option><option value="#8cff91">Зелений</option></select></label><button id="back">НАЗАД</button></div>
+<div id="hud"><span id="score">Рахунок: 0</span><span id="health">❤️ 100</span><button id="exit" style="min-width:75px;padding:6px 10px;margin:0;pointer-events:auto">МЕНЮ</button></div>
+<div id="hint">На телефоні: кнопки руху зліва, торкайся екрана справа щоб повернутись</div>
+<div id="controls"><div class="pad"><span></span><button data-key="w">▲</button><span></span><button data-key="a">◀</button><button data-key="s">▼</button><button data-key="d">▶</button></div><button id="shoot">TAG</button></div>
+<script>
+(()=> {
+const c=document.getElementById('game'),ctx=c.getContext('2d');let W,H,playing=false,px=3.5,py=3.5,ang=0,score=0,hp=100,bots=[],keys={},last=0,skin='#ff70d5';
+const map=["111111111111","100000000001","101100110001","100000000001","100110000001","100000000001","100011001001","100000000001","101100000001","100000000001","111111111111"];
+function resize(){W=c.width=innerWidth;H=c.height=innerHeight}addEventListener('resize',resize);resize();
+function spawn(n){bots=[];for(let i=0;i<n;i++)bots.push({x:7+Math.random()*3,y:2+Math.random()*7,alive:true,wait:0})}
+function wall(x,y){return !map[Math.floor(y)]||map[Math.floor(y)][Math.floor(x)]!=='0'}
+function ray(a){let d=0;while(d<18){d+=.035;if(wall(px+Math.cos(a)*d,py+Math.sin(a)*d))break}return d}
+function draw(){
+ctx.fillStyle='#171027';ctx.fillRect(0,0,W,H);ctx.fillStyle='#382047';ctx.fillRect(0,H/2,W,H/2);
+let cols=Math.ceil(W/3),zbuf=[];
+for(let i=0;i<cols;i++){let a=ang+(i/cols-.5)*1.15,d=ray(a);zbuf[i]=d;let h=Math.min(H,H/(d*Math.cos(a-ang)+.001));let shade=Math.max(25,150-d*12);ctx.fillStyle=`rgb(${shade+55},${Math.floor(shade*.55)},${shade+65})`;ctx.fillRect(i*3,(H-h)/2,4,h);ctx.fillStyle='rgba(255,100,220,.16)';ctx.fillRect(i*3,(H-h)/2,2,h)}
+bots.forEach(b=>{if(!b.alive)return;let dx=b.x-px,dy=b.y-py,dist=Math.hypot(dx,dy),a=Math.atan2(dy,dx)-ang;while(a>Math.PI)a-=Math.PI*2;while(a< -Math.PI)a+=Math.PI*2;if(Math.abs(a)<.65&&dist<zbuf[Math.max(0,Math.min(cols-1,Math.floor((a/1.15+.5)*cols)))]){let sx=W/2+Math.tan(a)*W*.85,sz=Math.min(H*.7,H/(dist*.85));ctx.fillStyle='#ff4d7d';ctx.fillRect(sx-sz*.22,H/2-sz*.35,sz*.44,sz*.7);ctx.fillStyle='#ffe7f5';ctx.fillRect(sx-sz*.13,H/2-sz*.23,sz*.07,sz*.07);ctx.fillRect(sx+sz*.06,H/2-sz*.23,sz*.07,sz*.07)}});
+ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(W/2-9,H/2);ctx.lineTo(W/2+9,H/2);ctx.moveTo(W/2,H/2-9);ctx.lineTo(W/2,H/2+9);ctx.stroke();
+}
+function update(dt){let speed=dt*2.5;if(keys.w||keys.arrowup){let nx=px+Math.cos(ang)*speed,ny=py+Math.sin(ang)*speed;if(!wall(nx,py))px=nx;if(!wall(px,ny))py=ny}if(keys.s||keys.arrowdown){let nx=px-Math.cos(ang)*speed,ny=py-Math.sin(ang)*speed;if(!wall(nx,py))px=nx;if(!wall(px,ny))py=ny}if(keys.a||keys.arrowleft)ang-=dt*2;if(keys.d||keys.arrowright)ang+=dt*2;
+bots.forEach(b=>{if(!b.alive)return;let dx=px-b.x,dy=py-b.y,d=Math.hypot(dx,dy);if(d>1.4){let nx=b.x+dx/d*dt*.35,ny=b.y+dy/d*dt*.35;if(!wall(nx,b.y))b.x=nx;if(!wall(b.x,ny))b.y=ny;}});
+}
+function loop(t){if(!playing)return;let dt=Math.min(.05,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop)}
+function start(){document.getElementById('menu').style.display='none';document.getElementById('settings').style.display='none';document.getElementById('hud').style.display='flex';document.getElementById('controls').style.display='flex';document.getElementById('hint').style.display='block';playing=true;px=3.5;py=3.5;ang=0;score=0;hp=100;spawn(+document.getElementById('bots').value);requestAnimationFrame(loop)}
+function stop(){playing=false;document.getElementById('menu').style.display='flex';document.getElementById('hud').style.display='none';document.getElementById('controls').style.display='none';document.getElementById('hint').style.display='none'}
+function shoot(){if(!playing)return;let target=null,best=99;bots.forEach(b=>{if(!b.alive)return;let dx=b.x-px,dy=b.y-py,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx)-ang;while(a>Math.PI)a-=Math.PI*2;while(a< -Math.PI)a+=Math.PI*2;if(Math.abs(a)<.16&&d<best){best=d;target=b}});if(target){target.alive=false;score+=10;document.getElementById('score').textContent='Рахунок: '+score;if(bots.every(b=>!b.alive)){setTimeout(()=>{if(playing){spawn(+document.getElementById('bots').value);}},500)}}}
+document.getElementById('play').onclick=start;document.getElementById('exit').onclick=stop;document.getElementById('openSettings').onclick=()=>{document.getElementById('menu').style.display='none';document.getElementById('settings').style.display='flex'};document.getElementById('back').onclick=()=>{document.getElementById('settings').style.display='none';document.getElementById('menu').style.display='flex'};
+document.getElementById('shoot').onclick=shoot;document.getElementById('skin').onchange=e=>skin=e.target.value;
+document.querySelectorAll('[data-key]').forEach(b=>{let k=b.dataset.key;b.addEventListener('touchstart',e=>{e.preventDefault();keys[k]=true});['touchend','touchcancel','mouseup','mouseleave'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false));b.addEventListener('mousedown',()=>keys[k]=true)});
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.code==='Space')shoot()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+let touchX=null;c.addEventListener('touchstart',e=>{if(e.touches[0].clientX>W*.45)touchX=e.touches[0].clientX},{passive:true});c.addEventListener('touchmove',e=>{if(touchX!==null){let x=e.touches[0].clientX;ang+=(x-touchX)*.008;touchX=x}},{passive:true});c.addEventListener('touchend',()=>touchX=null);
+c.addEventListener('click',e=>{if(playing&&e.clientX>W*.45)shoot()});
+draw();
+})();
+</script>
+</body></html>
